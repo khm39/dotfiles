@@ -1,0 +1,15 @@
+# Secrets - never commit these
+*.key
+*.pem
+id_rsa*
+id_ed25519*
+*.p12
+
+# GPG private keys
+private-keys-v1.d/
+
+# Runtime/cache
+*.swp
+*.swo
+*~
+.netrwhist

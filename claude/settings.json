@@ -1,0 +1,58 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(cargo test:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo check:*)",
+      "Bash(pnpm run:*)",
+      "Bash(pnpm test:*)",
+      "Bash(shellcheck:*)",
+      "Bash(ls:*)",
+      "Bash(which:*)",
+      "Bash(wc:*)",
+      "Bash(stat:*)",
+      "Bash(file:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(env:*)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(jq:*)",
+      "WebSearch"
+    ],
+    "ask": ["Bash(pnpm add *)", "Bash(git *)"],
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["git", "docker"]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/bin/bash $HOME/.claude/statusline.sh"
+  },
+  "language": "日本語",
+  "effortLevel": "high",
+  "autoUpdatesChannel": "stable"
+}

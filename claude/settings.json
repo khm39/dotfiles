@@ -3,7 +3,6 @@
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
-    "defaultMode": "default",
     "allow": [
       "Bash(git status:*)",
       "Bash(git log:*)",
@@ -32,7 +31,6 @@
       "Bash(jq:*)",
       "WebSearch"
     ],
-    "ask": ["Bash(pnpm add *)", "Bash(git *)"],
     "deny": [
       "Read(./.env)",
       "Edit(./.env)",
@@ -41,18 +39,26 @@
       "Bash(cat *)",
       "Bash(head *)",
       "Bash(tail *)"
-    ]
-  },
-  "sandbox": {
-    "enabled": true,
-    "autoAllowBashIfSandboxed": true,
-    "excludedCommands": ["git", "docker"]
+    ],
+    "ask": [
+      "Bash(pnpm add *)",
+      "Bash(git *)"
+    ],
+    "defaultMode": "default"
   },
   "statusLine": {
     "type": "command",
     "command": "/bin/bash $HOME/.claude/statusline.sh"
   },
   "language": "日本語",
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": [
+      "git",
+      "docker"
+    ]
+  },
   "effortLevel": "high",
   "autoUpdatesChannel": "stable"
 }

@@ -37,9 +37,6 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
-# Rust
-. "$HOME/.cargo/env"
-
 # Docker CLI completions
 fpath=($HOME/.docker/completions $fpath)
 autoload -Uz compinit

@@ -1,7 +1,39 @@
 {
+  "advisorModel": "opus",
+  "agentPushNotifEnabled": true,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "autoUpdatesChannel": "stable",
+  "effortLevel": "xhigh",
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
+  },
   "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "fastMode": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "/bin/bash $HOME/dotfiles/claude/hooks/enforce-worktree.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write|NotebookEdit"
+      }
+    ]
+  },
+  "inputNeededNotifEnabled": true,
+  "language": "日本語",
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -9,6 +41,9 @@
       "Bash(git diff:*)",
       "Bash(git branch:*)",
       "Bash(git show:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote:*)",
+      "Bash(git stash:*)",
       "Bash(go test:*)",
       "Bash(go build:*)",
       "Bash(go mod tidy:*)",
@@ -25,40 +60,48 @@
       "Bash(file:*)",
       "Bash(pwd:*)",
       "Bash(echo:*)",
-      "Bash(env:*)",
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(jq:*)",
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(tree:*)",
+      "Bash(du:*)",
+      "Bash(df:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh run view:*)",
       "WebSearch"
     ],
+    "ask": [
+      "Bash(pnpm add *)"
+    ],
+    "defaultMode": "auto",
     "deny": [
       "Read(./.env)",
       "Edit(./.env)",
-      "Bash(grep *)",
-      "Bash(find *)",
-      "Bash(cat *)",
-      "Bash(head *)",
-      "Bash(tail *)"
-    ],
-    "ask": [
-      "Bash(pnpm add *)",
-      "Bash(git *)"
-    ],
-    "defaultMode": "default"
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "/bin/bash $HOME/.claude/statusline.sh"
-  },
-  "language": "日本語",
-  "sandbox": {
-    "enabled": true,
-    "autoAllowBashIfSandboxed": true,
-    "excludedCommands": [
-      "git",
-      "docker"
+      "Read(**/.aws/credentials)",
+      "Read(**/.ssh/id_*)",
+      "Bash(sudo *)",
+      "Bash(rm -rf /*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard*)"
     ]
   },
-  "effortLevel": "high",
-  "autoUpdatesChannel": "stable"
+  "remoteControlAtStartup": true,
+  "skipAutoPermissionPrompt": true,
+  "statusLine": {
+    "command": "/bin/bash ~/.claude/statusline.sh",
+    "type": "command"
+  },
+  "teammateMode": "auto",
+  "useAutoModeDuringPlan": true,
+  "verbose": true
 }

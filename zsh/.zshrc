@@ -37,9 +37,18 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
+# Google Cloud
+export PATH=/opt/homebrew/share/google-cloud-sdk/bin:"$PATH"
+
 # Docker CLI completions
 fpath=($HOME/.docker/completions $fpath)
 autoload -Uz compinit
 compinit
 
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# GitHub Token (gh CLI 経由で取得、要 `gh auth login`)
+if command -v gh &>/dev/null; then
+  TOKEN_FOR_GITHUB="$(gh auth token 2>/dev/null)" \
+    && export TOKEN_FOR_GITHUB
+fi

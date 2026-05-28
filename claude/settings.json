@@ -103,5 +103,8 @@
   },
   "teammateMode": "auto",
   "useAutoModeDuringPlan": true,
-  "verbose": true
+  "verbose": true,
+  "worktree": {
+    "baseRef": "fresh"
+  }
 }

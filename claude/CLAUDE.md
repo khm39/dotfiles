@@ -31,6 +31,6 @@
 - **読み取り専用セッションでは呼ばない**: 質問への回答・コード調査・説明のみで完結するセッションでは worktree を作らない
 - **二重呼び出しの回避**: 現在のCWDが `.claude/worktrees/` を含む、または `git worktree list` で現在地が登録済みworktreeなら、再度呼ばない
 - **命名**: タスク内容を反映した短いkebab-case（例: `fix-login-bug`, `add-worktree-rule`）。決められない場合は `name` 省略で自動生成に任せる
-- **base ref**: デフォルト（`worktree.baseRef: fresh` = origin/<default>派生）を採用。未コミット変更を引き継ぐ必要があるときは、ユーザーに確認してから対応する（`git stash` で持ち込む、対象ファイルだけコピーする、など）
+- **未コミット変更の引き継ぎ**: 必要があるときはユーザーに確認してから対応する（`git stash` で持ち込む、対象ファイルだけコピーする、など）
 - **TeamCreate との併用**: メインがworktree内にいるときに `TeamCreate` でメンバーを立てる場合、メンバー側も `Agent` の `isolation: "worktree"` を指定する。二重worktreeになるが、メンバー作業の隔離は保たれる
 - **完了処理**: 作業完了時（PR作成後やタスク終了時）に、ユーザーへ `ExitWorktree` の実行可否を確認する。残作業がありそうなら `action: "keep"`、不要なら `action: "remove"`

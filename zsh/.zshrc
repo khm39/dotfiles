@@ -30,6 +30,9 @@ export PATH="/opt/homebrew/opt/postgresql/bin:$PATH"
 # Go
 export PATH="$HOME/go/bin:$PATH"
 
+# Rust (cargo)
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
 # pnpm
 export PNPM_HOME="$HOME/Library/pnpm"
 case ":$PATH:" in

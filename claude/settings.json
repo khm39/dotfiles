@@ -1,39 +1,12 @@
 {
-  "advisorModel": "opus",
-  "agentPushNotifEnabled": true,
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
-  "autoUpdatesChannel": "stable",
-  "effortLevel": "xhigh",
-  "enabledPlugins": {
-    "code-review@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true
-  },
   "env": {
     "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
-  "fastMode": true,
-  "hooks": {
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "/bin/bash $HOME/dotfiles/claude/hooks/enforce-worktree.sh",
-            "type": "command"
-          }
-        ],
-        "matcher": "Edit|Write|NotebookEdit"
-      }
-    ]
+  "attribution": {
+    "commit": "",
+    "pr": ""
   },
-  "inputNeededNotifEnabled": true,
-  "language": "日本語",
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -79,10 +52,6 @@
       "Bash(gh run view:*)",
       "WebSearch"
     ],
-    "ask": [
-      "Bash(pnpm add *)"
-    ],
-    "defaultMode": "auto",
     "deny": [
       "Read(./.env)",
       "Edit(./.env)",
@@ -93,18 +62,48 @@
       "Bash(git push --force*)",
       "Bash(git push -f *)",
       "Bash(git reset --hard*)"
+    ],
+    "ask": [
+      "Bash(pnpm add *)"
+    ],
+    "defaultMode": "auto"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash $HOME/dotfiles/claude/hooks/enforce-worktree.sh"
+          }
+        ]
+      }
     ]
   },
-  "remoteControlAtStartup": true,
-  "skipAutoPermissionPrompt": true,
   "statusLine": {
-    "command": "/bin/bash ~/.claude/statusline.sh",
-    "type": "command"
+    "type": "command",
+    "command": "/bin/bash ~/.claude/statusline.sh"
   },
-  "teammateMode": "auto",
-  "useAutoModeDuringPlan": true,
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
+  },
+  "language": "日本語",
+  "effortLevel": "xhigh",
+  "advisorModel": "opus",
+  "autoUpdatesChannel": "stable",
   "verbose": true,
-  "worktree": {
-    "baseRef": "fresh"
-  }
+  "autoCompactEnabled": true,
+  "teammateMode": "auto",
+  "remoteControlAtStartup": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "useAutoModeDuringPlan": true,
+  "skipWorkflowUsageWarning": true,
+  "fastMode": true
 }

@@ -4,6 +4,9 @@ alias vim='nvim'
 # Python Alias
 alias python=python3
 
+# PATH
+export PATH="$HOME/.local/bin:$PATH"
+
 # Java
 export JAVA_HOME="$(brew --prefix openjdk)"
 export PATH="$JAVA_HOME/bin:$PATH"

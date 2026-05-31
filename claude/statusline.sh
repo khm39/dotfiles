@@ -61,6 +61,9 @@ fi
 
 duration=$(echo "$input" | jq -r '.cost.total_duration_ms // empty')
 elapsed=""
+case "$duration" in
+  ''|*[!0-9.]*) duration="" ;;
+esac
 if [ -n "$duration" ]; then
   mins=$(( ${duration%.*} / 60000 ))
   if [ "$mins" -gt 0 ]; then

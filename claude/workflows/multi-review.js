@@ -245,19 +245,34 @@ log('リポジトリ構成を把握しレビュー単位に分割中...')
 const map = await agent(mapPrompt(), { label: 'map', phase: 'Map', schema: MAP_SCHEMA })
 
 const units = (map && map.units) || []
+const FLOOR = (map && map.reportFloor && SEV_RANK[map.reportFloor] != null) ? map.reportFloor : REPORT_FLOOR_DEFAULT
+const floorRank = SEV_RANK[FLOOR]
+
 if (!map || map.isEmpty || units.length === 0) {
   log('レビュー対象のコードが見つかりませんでした。')
   return {
     mode: map ? map.mode : null,
     target: map ? map.target : null,
-    units: [],
+    languages: (map && map.languages) || [],
+    reportFloor: FLOOR,
+    coverage: {
+      mode: map ? map.mode : null,
+      totalUnits: 0,
+      reviewedUnits: 0,
+      skippedUnits: [],
+      failedUnits: [],
+      detectedTools: (map && map.detectedTools) || [],
+      reportFloor: FLOOR,
+      method: 'LLMベースのレビュー(決定的な網羅保証なし)',
+    },
+    totalRaw: 0,
     confirmed: [],
+    primaryCount: 0,
+    minorCount: 0,
+    rejected: 0,
     report: `## multi-review\n\nレビュー対象のコードが見つかりませんでした。${map && map.note ? '\n\n理由: ' + map.note : ''}`,
   }
 }
-
-const FLOOR = (map.reportFloor && SEV_RANK[map.reportFloor] != null) ? map.reportFloor : REPORT_FLOOR_DEFAULT
-const floorRank = SEV_RANK[FLOOR]
 
 let cap = budget.total ? Math.max(1, Math.floor(budget.remaining() / PER_UNIT)) : units.length
 cap = Math.min(cap, HARD_CAP)
@@ -286,13 +301,13 @@ const perUnit = await pipeline(
       }
       const reason = (SEV_RANK[f.severity] ?? 9) > floorRank ? '報告閾値未満のため検証を省略(集約対象)' : '単位あたりの検証上限を超過したため未検証'
       return Promise.resolve({ ...base, verified: false, verdict: { verdict: 'unverified', reasoning: reason } })
-    })).then((findings) => ({ unit: unit.label || unit.id, reviewed: review != null, findings }))
+    })).then((findings) => ({ unitId: unit.id, unitLabel: unit.label || unit.id, reviewed: review != null, findings }))
   },
 )
 
 const settled = perUnit.filter(Boolean)
-const reviewedNames = settled.filter((u) => u.reviewed).map((u) => u.unit)
-const failedUnits = toReview.map((u) => u.label || u.id).filter((name) => !reviewedNames.includes(name))
+const reviewedIds = new Set(settled.filter((u) => u.reviewed).map((u) => u.unitId))
+const failedUnits = toReview.filter((u) => !reviewedIds.has(u.id)).map((u) => u.label || u.id)
 const all = settled.flatMap((u) => u.findings)
 
 const confirmed = all
@@ -307,7 +322,7 @@ const minor = confirmed.filter((f) => (SEV_RANK[f.severity] ?? 9) > floorRank)
 const coverage = {
   mode: map.mode,
   totalUnits: units.length,
-  reviewedUnits: reviewedNames.length,
+  reviewedUnits: reviewedIds.size,
   skippedUnits: skipped.map((u) => u.label || u.id),
   failedUnits,
   detectedTools: map.detectedTools || [],

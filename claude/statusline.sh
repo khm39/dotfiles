@@ -4,7 +4,7 @@ input=$(cat)
 
 # ── Vibe Island: rate_limits bridge (managed, do not remove) ───
 _rl=$(echo "$input" | jq -c '.rate_limits // empty' 2>/dev/null)
-[ -n "$_rl" ] && mkdir -p "$(dirname "/Users/khm39/.vibe-island/cache/rl.json")" 2>/dev/null && printf '%s\n' "$_rl" > "/Users/khm39/.vibe-island/cache/rl.json"
+[ -n "$_rl" ] && mkdir -p "$(dirname "$HOME/.vibe-island/cache/rl.json")" 2>/dev/null && printf '%s\n' "$_rl" > "$HOME/.vibe-island/cache/rl.json"
 # ── End Vibe Island bridge ─────────────────────────────
 
 render_bar() {

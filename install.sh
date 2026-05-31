@@ -251,6 +251,7 @@ task_link() {
   ensure_mode "${HOME}/.claude/statusline.sh" "755"
   ensure_link "${DOTFILES_DIR}/claude/CLAUDE.md"             "${HOME}/.claude/CLAUDE.md"
   ensure_link "${DOTFILES_DIR}/claude/skills/repo-explainer" "${HOME}/.claude/skills/repo-explainer"
+  ensure_link "${DOTFILES_DIR}/claude/skills/codex"          "${HOME}/.claude/skills/codex"
 }
 
 #######################################

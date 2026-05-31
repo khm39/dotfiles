@@ -1,7 +1,7 @@
 export const meta = {
   name: 'multi-review',
-  description: 'ブランチ/PRの差分を5観点で並列レビューし、各指摘を敵対的に検証してから日本語レポートに統合する',
-  whenToUse: '変更差分を複数観点(正確性/セキュリティ/性能/保守性/テスト)で徹底レビューしたいとき。引数にbase ref・PR番号・"staged"・"working"などを渡せる。',
+  description: 'ブランチ/PRの差分を5観点(必要に応じ後方互換性も)で並列レビューし、各指摘を敵対的に検証してから日本語レポートに統合する',
+  whenToUse: '変更差分を複数観点(正確性/セキュリティ/性能/保守性/テスト)で徹底レビューしたいとき。公開API・スキーマ・設定の変更時は後方互換性観点を自動追加する。引数にbase ref・PR番号・"staged"・"working"などを渡せる。',
   phases: [
     { title: 'Scope', detail: '差分範囲を確定し変更ファイルを収集' },
     { title: 'Review', detail: '観点ごとに並列でレビュー' },
@@ -11,6 +11,11 @@ export const meta = {
 }
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'nit']
+
+const EXTRA_DIMENSIONS = [
+  { key: 'compat', label: '後方互換性・契約', focus: '公開API/関数・メソッドのシグネチャ、DBスキーマ/マイグレーション、シリアライズ形式(APIレスポンス/イベント/protobuf等)、設定キー/環境変数/CLIフラグの破壊的変更。既存の呼び出し側・保存済みデータ・外部利用者への影響、非推奨/移行パスの有無。' },
+]
+const EXTRA_KEYS = EXTRA_DIMENSIONS.map((d) => d.key)
 
 const SCOPE_SCHEMA = {
   type: 'object',
@@ -23,6 +28,7 @@ const SCOPE_SCHEMA = {
     diffStat: { type: 'string' },
     isEmpty: { type: 'boolean' },
     note: { type: 'string' },
+    extraDimensions: { type: 'array', items: { type: 'string', enum: EXTRA_KEYS }, description: '条件付きで追加するレビュー観点のキー。compat=後方互換性・契約。該当が無ければ空配列。' },
   },
   required: ['baseRef', 'diffCommand', 'diffScope', 'changedFiles', 'isEmpty'],
 }
@@ -92,6 +98,7 @@ function scopePrompt() {
     '- baseRef は比較基準。作業ツリーのレビュー時は "WORKING"。',
     '- diffScope は範囲の説明(コミット済みbase...HEADか、未コミットか、PR番号か等)。',
     '- changedFiles は変更ファイルの相対パス配列。',
+    '- extraDimensions: 変更が外部利用者やデータ契約に影響しうる場合(公開API/関数シグネチャ、DBスキーマ/マイグレーション、APIレスポンス等のシリアライズ形式、設定キー/環境変数/CLIフラグの変更)に "compat" を入れる。純粋に内部実装のみの変更なら空配列にする。',
     '- 変更が一切無ければ isEmpty=true とし、note に理由を書く。',
   ].join('\n')
 }
@@ -180,10 +187,14 @@ if (!scope || scope.isEmpty) {
   }
 }
 
-log(`差分範囲: ${scope.diffScope} / 変更ファイル ${(scope.changedFiles || []).length} 件。${DIMENSIONS.length} 観点で並列レビューを開始。`)
+const activeDimensions = DIMENSIONS.concat(
+  EXTRA_DIMENSIONS.filter((d) => (scope.extraDimensions || []).includes(d.key)),
+)
+
+log(`差分範囲: ${scope.diffScope} / 変更ファイル ${(scope.changedFiles || []).length} 件。${activeDimensions.length} 観点(${activeDimensions.map((d) => d.key).join(', ')})で並列レビューを開始。`)
 
 const reviewed = await pipeline(
-  DIMENSIONS,
+  activeDimensions,
   (d) => agent(reviewPrompt(d, scope), { label: `review:${d.key}`, phase: 'Review', schema: FINDINGS_SCHEMA }),
   (review, d) => parallel(
     ((review && review.findings) || []).map((f) => () => {

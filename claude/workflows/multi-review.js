@@ -23,8 +23,11 @@ const DIM_KEYS = DIMENSIONS.map((d) => d.key)
 
 // 1単位のレビュー+検証+レポート按分で消費する出力トークンの概算(予算スケール用)
 const PER_UNIT = 12000
-// エージェント総数(〜1000)・同時実行(〜14)上限を踏まえた安全上限。超過分は黙って捨てずlogする
+// エージェント総数(〜1000)・同時実行上限を踏まえた、レビューする単位数の安全上限。超過分は黙って捨てずlogする
 const HARD_CAP = 80
+// 1単位あたりに spawn する verify エージェント数の上限。指摘が多い単位での総エージェント数暴走を防ぐ
+const MAX_VERIFY_PER_UNIT = 8
+const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3, nit: 4 }
 
 const MAP_SCHEMA = {
   type: 'object',
@@ -200,6 +203,26 @@ function reportPrompt(confirmed, map, coverage) {
   ].join('\n')
 }
 
+// レポート生成 agent が失敗(予算超過等)しても確定指摘を失わないための機械生成フォールバック
+function fallbackReport(confirmed, map, coverage) {
+  const lines = [
+    '## multi-review (フォールバック生成)',
+    'レポート生成に失敗したため、確定指摘を機械的に列挙します。',
+    '',
+    `対象: ${map.target}`,
+    `カバレッジ: 全${coverage.totalUnits}単位中${coverage.reviewedUnits}単位をレビュー(LLMベース、網羅保証なし)`,
+    '',
+  ]
+  for (const sev of SEVERITIES) {
+    const items = confirmed.filter((f) => f.severity === sev)
+    if (!items.length) continue
+    lines.push(`### ${sev} (${items.length}件)`)
+    for (const f of items) lines.push(`- [${f.dimension}] ${f.file}${f.line ? ':' + f.line : ''} — ${f.title}`)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
 phase('Map')
 log('リポジトリ構成を把握しレビュー単位に分割中...')
 const map = await agent(mapPrompt(), { label: 'map', phase: 'Map', schema: MAP_SCHEMA })
@@ -216,7 +239,7 @@ if (!map || map.isEmpty || units.length === 0) {
   }
 }
 
-let cap = budget.total ? Math.max(3, Math.floor(budget.remaining() / PER_UNIT)) : units.length
+let cap = budget.total ? Math.max(1, Math.floor(budget.remaining() / PER_UNIT)) : units.length
 cap = Math.min(cap, HARD_CAP)
 const toReview = units.slice(0, cap)
 const skipped = units.slice(cap)
@@ -226,22 +249,32 @@ if (skipped.length) {
   log(`注意: 予算/上限により ${skipped.length} 単位は未カバー(優先度下位): ${skipped.map((u) => u.label || u.id).join(', ')}`)
 }
 
-const reviewed = await pipeline(
+const perUnit = await pipeline(
   toReview,
   (unit) => agent(reviewUnitPrompt(unit, map), { label: `review:${unit.id}`, phase: 'Review', schema: FINDINGS_SCHEMA }),
-  (review, unit) => parallel(
-    ((review && review.findings) || []).map((f) => () => {
+  (review, unit) => {
+    const found = (review && review.findings) || []
+    const sorted = found.slice().sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
+    const verifySet = new Set(sorted.filter((f) => f.severity !== 'low' && f.severity !== 'nit').slice(0, MAX_VERIFY_PER_UNIT))
+    return parallel(found.map((f) => () => {
       const base = { ...f, unit: unit.label || unit.id }
-      if (f.severity === 'low' || f.severity === 'nit') {
-        return Promise.resolve({ ...base, verified: false, verdict: { verdict: 'unverified', reasoning: '低深刻度のため敵対的検証を省略' } })
+      if (verifySet.has(f)) {
+        return agent(verifyPrompt(f, unit), { label: `verify:${unit.id}:${f.file}`, phase: 'Verify', schema: VERDICT_SCHEMA })
+          .then((v) => (v && v.verdict)
+            ? { ...base, verified: true, verdict: v }
+            : { ...base, verified: false, verdict: { verdict: 'unverified', reasoning: '検証結果が得られなかった(スキップ/失敗)' } })
       }
-      return agent(verifyPrompt(f, unit), { label: `verify:${unit.id}:${f.file}`, phase: 'Verify', schema: VERDICT_SCHEMA })
-        .then((v) => ({ ...base, verified: true, verdict: v }))
-    })
-  )
+      const reason = (f.severity === 'low' || f.severity === 'nit') ? '低深刻度のため敵対的検証を省略' : '単位あたりの検証上限を超過したため未検証'
+      return Promise.resolve({ ...base, verified: false, verdict: { verdict: 'unverified', reasoning: reason } })
+    })).then((findings) => ({ unit: unit.label || unit.id, reviewed: review != null, findings }))
+  },
 )
 
-const all = reviewed.flat().filter(Boolean)
+const settled = perUnit.filter(Boolean)
+const reviewedNames = settled.filter((u) => u.reviewed).map((u) => u.unit)
+const failedUnits = toReview.map((u) => u.label || u.id).filter((name) => !reviewedNames.includes(name))
+const all = settled.flatMap((u) => u.findings)
+
 const confirmed = all
   .filter((f) => !(f.verdict && f.verdict.verdict === 'reject'))
   .map((f) => (f.verdict && f.verdict.verdict === 'downgrade' && f.verdict.adjustedSeverity)
@@ -251,17 +284,24 @@ const confirmed = all
 const coverage = {
   mode: map.mode,
   totalUnits: units.length,
-  reviewedUnits: toReview.length,
+  reviewedUnits: reviewedNames.length,
   skippedUnits: skipped.map((u) => u.label || u.id),
+  failedUnits,
   detectedTools: map.detectedTools || [],
   method: 'LLMベースのレビュー(決定的な網羅保証なし)',
 }
 
 const rejectedCount = all.length - confirmed.length
-log(`指摘 ${all.length} 件中 ${confirmed.length} 件が確定(${rejectedCount} 件は誤検知として除外)。レポートを生成中。`)
+log(`指摘 ${all.length} 件中 ${confirmed.length} 件が確定(${rejectedCount} 件は検証で誤検知と判定し除外)。レポートを生成中。`)
 
 phase('Report')
-const report = await agent(reportPrompt(confirmed, map, coverage), { label: 'report', phase: 'Report' })
+let report
+try {
+  report = await agent(reportPrompt(confirmed, map, coverage), { label: 'report', phase: 'Report' })
+} catch (e) {
+  log('レポート生成に失敗。確定指摘からフォールバックレポートを生成します。')
+  report = fallbackReport(confirmed, map, coverage)
+}
 
 return {
   mode: map.mode,

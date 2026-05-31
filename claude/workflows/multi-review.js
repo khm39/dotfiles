@@ -1,7 +1,7 @@
 export const meta = {
   name: 'multi-review',
   description: 'リポジトリ全体を観点別にレビューする。攻撃面/重要度で優先度付けした単位にファンアウトし、各指摘を敵対的に検証、カバレッジを明示した日本語レポートに統合する',
-  whenToUse: 'リポジトリ全体のコード品質を多観点(正確性/セキュリティ/性能/保守性/テスト)で棚卸ししたいとき。引数なしで全体、パスを渡すとその範囲、base ref/"diff"を渡すと差分のみ。差分やセキュリティ単体は既存の /code-review・/security-review でも可。',
+  whenToUse: 'リポジトリ全体のコード品質を多観点(正確性/セキュリティ/性能/保守性/テスト)で棚卸ししたいとき。引数なしで全体、パスを渡すとその範囲、base ref/"diff"を渡すと差分のみ。既定は high 以上のみ本文に詳述し medium 以下は集約(ノイズ抑制)、"all"/"medium" 等で粒度変更可。差分やセキュリティ単体は既存の /code-review・/security-review でも可。',
   phases: [
     { title: 'Map', detail: '構成を把握しレビュー単位に分割・優先度付け' },
     { title: 'Review', detail: '単位ごとに観点別レビュー(優先度順・予算でスケール)' },
@@ -28,6 +28,8 @@ const HARD_CAP = 80
 // 1単位あたりに spawn する verify エージェント数の上限。指摘が多い単位での総エージェント数暴走を防ぐ
 const MAX_VERIFY_PER_UNIT = 8
 const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3, nit: 4 }
+// 既定の報告閾値。これ未満(既定では medium/low/nit)は本文に詳述せず件数+集約に降格し、敵対的検証も省略する。argsで上書き可
+const REPORT_FLOOR_DEFAULT = 'high'
 
 const MAP_SCHEMA = {
   type: 'object',
@@ -56,6 +58,7 @@ const MAP_SCHEMA = {
     },
     isEmpty: { type: 'boolean' },
     note: { type: 'string' },
+    reportFloor: { type: 'string', enum: SEVERITIES, description: '本文に詳述する深刻度の下限。argsに"all"/"low"/"medium"/"high"等の指定があれば反映。無指定なら省略(既定はhigh)。' },
   },
   required: ['mode', 'target', 'units', 'isEmpty'],
 }
@@ -118,6 +121,7 @@ function mapPrompt() {
     '',
     '出力:',
     '- units は id/label/paths/priority/rationale を持ち、優先度順。paths は実在する相対パス/グロブ。',
+    '- reportFloor: argsに報告粒度の指定(例: "all"=全件, "low", "medium", "high")が含まれればそれを設定する。スコープ指定(パス等)と粒度指定が混在してもよい。無指定なら省略(既定は high で medium 以下は集約)。',
     '- 対象にレビューすべきコードが無い(空リポ/対象パスが空/差分なし)場合は isEmpty=true とし note に理由を書く。',
     '- 推測でファイルをでっち上げない。実際に存在するパスのみ。',
   ].join('\n')
@@ -144,7 +148,9 @@ function reviewUnitPrompt(unit, map) {
     dimensionChecklist(),
     '- 各指摘に file, line(行/範囲), dimension, severity, title(簡潔), detail(なぜ問題か), suggestion(具体的な修正案) を付ける。',
     '- severity基準: critical=本番障害/データ損失/重大な脆弱性, high=明確なバグ/重要な欠陥, medium=条件付きの問題/設計上の懸念, low=軽微, nit=好みの範囲。',
-    '- 問題が無ければ findings を空配列で返す。憶測や一般論で水増ししない。実在する具体的な問題のみ。',
+    '- 報告するのは「具体的な影響がある問題」だけ。様式的な好み、無害な冗長、慣習との些細な相違、憶測・低確度の懸念は報告しない。迷ったら出さない。',
+    '- 件数を稼がない。確度の高い指摘を少数返す方がよい。問題が無ければ findings を空配列で返す。',
+    '- severity は厳しめに付ける。動作・セキュリティ・データに実害が無いものは安易に medium 以上にせず low/nit に留める。',
   ].filter(Boolean).join('\n')
 }
 
@@ -168,58 +174,69 @@ function verifyPrompt(f, unit) {
     '  * reject: 明確な誤検知、既に対処済み、または事実誤認のとき。',
     '  * downgrade: 問題は起こりうるが申告ほど深刻でない、または条件が限定的なとき。adjustedSeverity に下げた深刻度を入れる。',
     '  * confirmed: 指摘は妥当。深刻度が適切なら adjustedSeverity は申告どおりにする。',
-    '- 重要: critical または high の指摘は、誤検知だと確信できる場合のみ reject する。妥当性が残るが確証が持てない場合は reject せず downgrade にすること(取りこぼし防止)。',
+    '- critical / high: 誤検知だと確信できる場合のみ reject(取りこぼし防止)。妥当だが確証が持てない場合は reject せず downgrade。',
+    '- medium 以下: 精度優先。明確に実害があると確認できなければ reject する(該当すれば downgrade)。「一応問題かも」程度の確度なら残さない。',
     '- reasoning に根拠を簡潔に書く。',
   ].filter(Boolean).join('\n')
 }
 
-function reportPrompt(confirmed, map, coverage) {
+function reportPrompt(primary, minor, map, coverage, floor) {
+  const minorBrief = minor.map((f) => ({ severity: f.severity, dimension: f.dimension, file: f.file, line: f.line, title: f.title }))
   return [
     'あなたはリポジトリ全体のレビュー結果を統合して最終レポートを書く担当です。出力は日本語のMarkdown。',
     '',
     `対象: ${map.target}`,
     `リポジトリ概要: ${map.repoSummary || ''}`,
     `言語: ${(map.languages || []).join(', ')}`,
+    `報告閾値: ${floor} 以上を本文に詳述。それ未満は集約のみ。`,
     '',
     'カバレッジ情報(レポートに必ず明記する):',
     '```json',
     JSON.stringify(coverage, null, 2),
     '```',
     '',
-    '検証を通過した指摘(JSON):',
+    `本文に詳述する指摘(${floor}以上・検証済み):`,
     '```json',
-    JSON.stringify(confirmed, null, 2),
+    JSON.stringify(primary, null, 2),
+    '```',
+    '',
+    `集約のみの軽微な指摘(${floor}未満・未検証。タイトルのみ):`,
+    '```json',
+    JSON.stringify(minorBrief, null, 2),
     '```',
     '',
     'レポート構成:',
-    '1. まず指摘を統合する: 異なる単位・観点から挙がった「同じ根本原因」の指摘は1件にまとめる。file:lineの機械的一致ではなく意味で判断し、関連する観点を併記し、深刻度は最も高いものを採用する。',
+    '1. まず本文指摘を統合する: 異なる単位・観点から挙がった「同じ根本原因」の指摘は1件にまとめる。意味で判断し、関連観点を併記、深刻度は最大を採用する。',
     '2. 冒頭に総評(2〜4行)と総合判定: ✅ 良好 / 🔧 要改善 / ⛔ 重大問題あり のいずれか。critical/highが残る場合は良好にしない。',
-    '3. **カバレッジ**セクション: 全N単位中M単位をレビュー(未カバーがあれば優先度下位の単位名を挙げる)。これはLLMベースのレビューであり、ファイル横断のデータフローや網羅性には限界があること、決定的な保証には専用の静的解析(SAST)が必要なことを明記する。detectedToolsがあれば併用を勧める。',
-    '4. 深刻度の高い順(critical→high→medium→low→nit)に指摘を列挙。各指摘は見出しに [深刻度] file:line とタイトル、本文に理由と具体的な修正案を書き、該当する観点(複数可)と単位を併記する。',
-    '5. nit/lowが多い場合はまとめて簡潔に列挙し、critical/highが埋もれないようにする。',
-    '6. 指摘が1件も無ければ、確認した範囲を明記した上で「重大な問題は見つからなかった」と書く。',
+    '3. **カバレッジ**セクション: 全N単位中M単位をレビュー(未カバーがあれば単位名)。LLMベースで網羅・ファイル横断データフローに限界があり、決定的保証には静的解析(SAST)併用が必要な旨を明記。detectedToolsがあれば併用を勧める。',
+    `4. ${floor}以上の指摘のみ深刻度順に詳述する。各指摘は見出しに [深刻度] file:line とタイトル、本文に理由と具体的な修正案、観点(複数可)と単位を併記。`,
+    '5. 集約分(軽微な指摘)は末尾に「軽微: N件」と観点別の内訳・代表例を数行でまとめるだけにする。一件ずつ詳述しない。',
+    `6. ${floor}以上の指摘が無ければ、確認範囲を明記し「重大な問題は見つからなかった(軽微 N件は別途)」と書く。`,
     '',
     '冗長な前置きや一般論は避け、具体的な内容のみを書くこと。',
   ].join('\n')
 }
 
 // レポート生成 agent が失敗(予算超過等)しても確定指摘を失わないための機械生成フォールバック
-function fallbackReport(confirmed, map, coverage) {
+function fallbackReport(primary, minor, map, coverage, floor) {
   const lines = [
     '## multi-review (フォールバック生成)',
     'レポート生成に失敗したため、確定指摘を機械的に列挙します。',
     '',
     `対象: ${map.target}`,
     `カバレッジ: 全${coverage.totalUnits}単位中${coverage.reviewedUnits}単位をレビュー(LLMベース、網羅保証なし)`,
+    `報告閾値: ${floor} 以上を詳述、未満は件数のみ`,
     '',
   ]
   for (const sev of SEVERITIES) {
-    const items = confirmed.filter((f) => f.severity === sev)
+    if ((SEV_RANK[sev] ?? 9) > SEV_RANK[floor]) break
+    const items = primary.filter((f) => f.severity === sev)
     if (!items.length) continue
     lines.push(`### ${sev} (${items.length}件)`)
     for (const f of items) lines.push(`- [${f.dimension}] ${f.file}${f.line ? ':' + f.line : ''} — ${f.title}`)
     lines.push('')
   }
+  if (minor.length) lines.push(`### 軽微(${floor}未満) ${minor.length}件 — 詳細は confirmed を参照`)
   return lines.join('\n')
 }
 
@@ -239,6 +256,9 @@ if (!map || map.isEmpty || units.length === 0) {
   }
 }
 
+const FLOOR = (map.reportFloor && SEV_RANK[map.reportFloor] != null) ? map.reportFloor : REPORT_FLOOR_DEFAULT
+const floorRank = SEV_RANK[FLOOR]
+
 let cap = budget.total ? Math.max(1, Math.floor(budget.remaining() / PER_UNIT)) : units.length
 cap = Math.min(cap, HARD_CAP)
 const toReview = units.slice(0, cap)
@@ -255,7 +275,7 @@ const perUnit = await pipeline(
   (review, unit) => {
     const found = (review && review.findings) || []
     const sorted = found.slice().sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
-    const verifySet = new Set(sorted.filter((f) => f.severity !== 'low' && f.severity !== 'nit').slice(0, MAX_VERIFY_PER_UNIT))
+    const verifySet = new Set(sorted.filter((f) => (SEV_RANK[f.severity] ?? 9) <= floorRank).slice(0, MAX_VERIFY_PER_UNIT))
     return parallel(found.map((f) => () => {
       const base = { ...f, unit: unit.label || unit.id }
       if (verifySet.has(f)) {
@@ -264,7 +284,7 @@ const perUnit = await pipeline(
             ? { ...base, verified: true, verdict: v }
             : { ...base, verified: false, verdict: { verdict: 'unverified', reasoning: '検証結果が得られなかった(スキップ/失敗)' } })
       }
-      const reason = (f.severity === 'low' || f.severity === 'nit') ? '低深刻度のため敵対的検証を省略' : '単位あたりの検証上限を超過したため未検証'
+      const reason = (SEV_RANK[f.severity] ?? 9) > floorRank ? '報告閾値未満のため検証を省略(集約対象)' : '単位あたりの検証上限を超過したため未検証'
       return Promise.resolve({ ...base, verified: false, verdict: { verdict: 'unverified', reasoning: reason } })
     })).then((findings) => ({ unit: unit.label || unit.id, reviewed: review != null, findings }))
   },
@@ -281,6 +301,9 @@ const confirmed = all
     ? { ...f, severity: f.verdict.adjustedSeverity }
     : f)
 
+const primary = confirmed.filter((f) => (SEV_RANK[f.severity] ?? 9) <= floorRank)
+const minor = confirmed.filter((f) => (SEV_RANK[f.severity] ?? 9) > floorRank)
+
 const coverage = {
   mode: map.mode,
   totalUnits: units.length,
@@ -288,28 +311,32 @@ const coverage = {
   skippedUnits: skipped.map((u) => u.label || u.id),
   failedUnits,
   detectedTools: map.detectedTools || [],
+  reportFloor: FLOOR,
   method: 'LLMベースのレビュー(決定的な網羅保証なし)',
 }
 
 const rejectedCount = all.length - confirmed.length
-log(`指摘 ${all.length} 件中 ${confirmed.length} 件が確定(${rejectedCount} 件は検証で誤検知と判定し除外)。レポートを生成中。`)
+log(`指摘 ${all.length} 件 → 確定 ${confirmed.length} 件(reject ${rejectedCount} 件)。本文掲載 ${primary.length} 件(${FLOOR}以上)、軽微として集約 ${minor.length} 件。レポートを生成中。`)
 
 phase('Report')
 let report
 try {
-  report = await agent(reportPrompt(confirmed, map, coverage), { label: 'report', phase: 'Report' })
+  report = await agent(reportPrompt(primary, minor, map, coverage, FLOOR), { label: 'report', phase: 'Report' })
 } catch (e) {
   log('レポート生成に失敗。確定指摘からフォールバックレポートを生成します。')
-  report = fallbackReport(confirmed, map, coverage)
+  report = fallbackReport(primary, minor, map, coverage, FLOOR)
 }
 
 return {
   mode: map.mode,
   target: map.target,
   languages: map.languages,
+  reportFloor: FLOOR,
   coverage,
   totalRaw: all.length,
   confirmed,
+  primaryCount: primary.length,
+  minorCount: minor.length,
   rejected: rejectedCount,
   report,
 }

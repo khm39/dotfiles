@@ -78,6 +78,15 @@
       {
         "hooks": [
           {
+            "command": "/bin/bash $HOME/dotfiles/claude/hooks/block-main-push.sh",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
             "command": "/bin/sh -c '[ -x \"$HOME/.vibe-island/bin/vibe-island-bridge\" ] && \"$HOME/.vibe-island/bin/vibe-island-bridge\" --source claude; exit 0'",
             "type": "command"
           }
@@ -205,7 +214,6 @@
       "Edit(**/.env)",
       "Write(**/.env)",
       "Read(**/.aws/credentials)",
-      "Read(**/.ssh/id_*)",
       "Read(**/.ssh/*)",
       "Read(**/*.pem)",
       "Bash(cat *.env*)",
@@ -232,7 +240,6 @@
       "Bash(find * -delete*)",
       "Bash(git push --force*)",
       "Bash(git push -f *)",
-      "Bash(git push *+*)",
       "Bash(git reset --hard*)"
     ]
   },

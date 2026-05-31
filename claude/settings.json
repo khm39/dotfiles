@@ -8,6 +8,7 @@
   "autoCompactEnabled": true,
   "autoUpdatesChannel": "latest",
   "effortLevel": "xhigh",
+  "enableWorkflows": true,
   "enabledPlugins": {
     "code-review@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
@@ -217,6 +218,7 @@
     "type": "command"
   },
   "teammateMode": "auto",
+  "ultracode": true,
   "useAutoModeDuringPlan": true,
   "verbose": true
 }

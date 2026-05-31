@@ -95,7 +95,7 @@
   "language": "日本語",
   "effortLevel": "xhigh",
   "advisorModel": "opus",
-  "autoUpdatesChannel": "stable",
+  "autoUpdatesChannel": "latest",
   "verbose": true,
   "autoCompactEnabled": true,
   "teammateMode": "auto",

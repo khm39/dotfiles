@@ -16,7 +16,6 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTINGS="${RLG_SETTINGS_FILE:-$HOME/.claude/settings.json}"
 STATE_DIR="${RL_STATE_DIR:-$HOME/.claude/rate-limit-guard}"
 
-START_MARK="# >>> rate-limit-guard (managed; remove with setup.sh uninstall) >>>"
 HOOK_SCRIPT="$SELF_DIR/ratelimit-hint-hook.sh"
 HOOK_CMD="/bin/bash $HOOK_SCRIPT"
 HOOK_MATCHER="Edit|Write|Bash"
@@ -27,13 +26,15 @@ ts() { date +%Y%m%d%H%M%S; }
 # ───── (1) statusline 追記 ─────
 resolve_statusline() {
   if [ -n "${RLG_STATUSLINE_FILE:-}" ]; then printf '%s' "$RLG_STATUSLINE_FILE"; return; fi
-  local cmd script
+  local cmd tok script="" toks
   cmd="$(jq -r '.statusLine.command // empty' "$SETTINGS" 2>/dev/null)"
-  script="${cmd##* }"; script="${script/#\~/$HOME}"
-  case "$script" in
-    *.sh) printf '%s' "$script" ;;
-    *)    printf '%s' "$HOME/.claude/statusline.sh" ;;
-  esac
+  # statusLine.command を空白分割し .sh で終わるトークンを拾う(末尾に引数があっても誤認しない)
+  read -ra toks <<< "$cmd"
+  for tok in "${toks[@]}"; do
+    case "$tok" in *.sh) script="$tok" ;; esac
+  done
+  [ -n "$script" ] || script="$HOME/.claude/statusline.sh"   # 見つからなければ既定
+  printf '%s' "${script/#\~/$HOME}"                          # ~ を展開
 }
 
 emit_block() {

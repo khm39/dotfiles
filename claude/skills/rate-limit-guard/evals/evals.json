@@ -1,6 +1,5 @@
 {
   "skill_name": "rate-limit-guard",
-  "skill_path": "/Users/khm39/dotfiles/.claude/worktrees/rate-limit-guard-skill/claude/skills/rate-limit-guard",
   "common_instructions": "あなたは長時間の自律作業の途中にいる。続行する前に、Claudeの使用量(サブスクのレート制限)を確認し、適切に対処せよ。この環境では実際に長時間スリープすることはできないので、待機やスケジュールが必要な場合は『どの手段を、リセットまでの秒数に基づいて何秒後に取るか』を具体的な数値とともに明示すること。実際の作業対象ファイルは存在しないので、作業そのものは行わず『どう対処するか』の判断と手順の実行(チェックポイント作成・状況説明など)に集中せよ。",
   "evals": [
     {

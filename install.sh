@@ -249,10 +249,11 @@ task_link() {
   ensure_link "${DOTFILES_DIR}/claude/settings.json"  "${HOME}/.claude/settings.json"
   ensure_link "${DOTFILES_DIR}/claude/statusline.sh"  "${HOME}/.claude/statusline.sh"
   ensure_mode "${HOME}/.claude/statusline.sh" "755"
-  ensure_link "${DOTFILES_DIR}/claude/CLAUDE.md"             "${HOME}/.claude/CLAUDE.md"
-  ensure_link "${DOTFILES_DIR}/claude/skills/repo-explainer" "${HOME}/.claude/skills/repo-explainer"
-  ensure_link "${DOTFILES_DIR}/claude/skills/codex"          "${HOME}/.claude/skills/codex"
-  ensure_link "${DOTFILES_DIR}/claude/workflows"             "${HOME}/.claude/workflows"
+  ensure_link "${DOTFILES_DIR}/claude/CLAUDE.md"               "${HOME}/.claude/CLAUDE.md"
+  ensure_link "${DOTFILES_DIR}/claude/skills/repo-explainer"   "${HOME}/.claude/skills/repo-explainer"
+  ensure_link "${DOTFILES_DIR}/claude/skills/codex"            "${HOME}/.claude/skills/codex"
+  ensure_link "${DOTFILES_DIR}/claude/skills/rate-limit-guard" "${HOME}/.claude/skills/rate-limit-guard"
+  ensure_link "${DOTFILES_DIR}/claude/workflows"               "${HOME}/.claude/workflows"
 }
 
 #######################################

@@ -67,14 +67,12 @@ jq -n \
   --argjson five_reset "$FIVE_RESET" \
   --arg note "$NOTE" \
   '
-  def win(pct; reset):
-    if pct == null then null
-    else { used_percentage: pct,
-           resets_at: reset,
-           resets_in_seconds: (if reset == null then null else ([(reset - $now), 0] | max) end),
-           over: (pct >= $threshold) }
-    end;
-  (win($five_pct; $five_reset)) as $five
+  (if $five_pct == null then null
+   else { used_percentage: $five_pct,
+          resets_at: $five_reset,
+          resets_in_seconds: (if $five_reset == null then null else ([($five_reset - $now), 0] | max) end),
+          over: ($five_pct >= $threshold) }
+   end) as $five
   | (if   ($five != null and $five.over) then "wrap_up_and_wait"
      elif ($five != null)                then "continue"
      else "unknown" end) as $action

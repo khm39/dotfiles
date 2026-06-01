@@ -23,6 +23,20 @@ HOOK_ID="ratelimit-hint-hook.sh"
 
 ts() { date +%Y%m%d%H%M%S; }
 
+# シンボリックリンクを実体まで辿る。symlink 先(例: dotfiles 実体)を直接書き換えることで、
+# mv による書き戻しが symlink を実ファイルに置き換えて壊すのを防ぐ(symlink/実体どちらでも安全)。
+resolve_real() {
+  local p="$1" t
+  while [ -L "$p" ]; do
+    t="$(readlink "$p")"
+    case "$t" in
+      /*) p="$t" ;;
+      *)  p="$(cd "$(dirname "$p")" && pwd)/$t" ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+
 # ───── (1) statusline 追記 ─────
 resolve_statusline() {
   if [ -n "${RLG_STATUSLINE_FILE:-}" ]; then printf '%s' "$RLG_STATUSLINE_FILE"; return; fi
@@ -67,7 +81,7 @@ uninstall_capture() {
   cp "$t" "$t.rlguard.bak.$(ts)"
   local tmp; tmp="$(mktemp)"
   awk -v s=">>> rate-limit-guard" -v e="<<< rate-limit-guard" '
-    $0 ~ s {skip=1} skip==0 {print} $0 ~ e {skip=0}' "$t" > "$tmp" && mv "$tmp" "$t"
+    $0 ~ s {skip=1} skip==0 {print} $0 ~ e {skip=0}' "$t" > "$tmp" && mv "$tmp" "$(resolve_real "$t")"
   echo "  [capture] 除去完了: $t"
 }
 
@@ -87,7 +101,7 @@ install_hook() {
   jq --arg cmd "$HOOK_CMD" --arg m "$HOOK_MATCHER" '
     .hooks //= {} | .hooks.PreToolUse //= [] |
     .hooks.PreToolUse += [ { matcher: $m, hooks: [ { type: "command", command: $cmd } ] } ]
-  ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+  ' "$SETTINGS" > "$tmp" && mv "$tmp" "$(resolve_real "$SETTINGS")"
   echo "  [hook] PreToolUse に追加: $HOOK_CMD"
 }
 
@@ -101,7 +115,7 @@ uninstall_hook() {
       .hooks.PreToolUse |= map(select(
         ((.hooks // []) | map(.command // "") | join(" ")) | test($id) | not))
     else . end
-  ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+  ' "$SETTINGS" > "$tmp" && mv "$tmp" "$(resolve_real "$SETTINGS")"
   echo "  [hook] PreToolUse から除去"
 }
 

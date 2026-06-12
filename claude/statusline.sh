@@ -32,7 +32,7 @@ model=$(echo "$input" | jq -r '.model.display_name // "Claude"')
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 ctx=""
 if [ -n "$used" ]; then
-  ctx=" | $(render_bar "$(printf '%.0f' "$used")" 20)"
+  ctx=" $(render_bar "$(printf '%.0f' "$used")" 8)"
 fi
 
 # Rate limits: Claude.ai Pro/Max only, absent before first API response
@@ -55,8 +55,9 @@ fmt_reset() {
 rate=""
 five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 if [ -n "$five_pct" ]; then
+  five_int=$(printf '%.0f' "$five_pct")
   five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
-  rate=" | 5h $(render_bar "$(printf '%.0f' "$five_pct")" 10)$(fmt_reset "$five_reset")"
+  rate=" | 5h $(pct_color "$five_int")${five_int}%\033[0m$(fmt_reset "$five_reset")"
 fi
 
 seven_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')

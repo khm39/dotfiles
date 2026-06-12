@@ -37,7 +37,7 @@
 - **発動タイミング**: 編集系ツール（Edit / Write / NotebookEdit）を最初に呼ぶ直前に `EnterWorktree` を呼ぶ。指示を受けた瞬間ではなく、実際に編集を始める段階で発動する
 - **読み取り専用では呼ばない**: 回答・調査・説明のみで完結するセッションでは作らない
 - **二重呼び出しの回避**: CWDが `.claude/worktrees/` を含む、または `git worktree list` で現在地が登録済みworktreeなら、再度呼ばない
-- **命名**: タスクを反映した短いkebab-case（例 `fix-login-bug`）。決められなければ `name` 省略で自動生成に任せる
+- **命名**: worktree のディレクトリ名とブランチ名は別物。push するブランチ名には `worktree` 等の接頭辞を付けず、タスクを反映した短いkebab-case にする（例 `fix-login-bug`）。決められなければ `name` 省略で自動生成に任せる
 - **未コミット変更の引き継ぎ**: 必要時はユーザーに確認してから対応する（`git stash` で持ち込む、対象ファイルだけコピーする、など）
 - **TeamCreate との併用**: メインがworktree内のとき `TeamCreate` でメンバーを立てる場合、メンバー側も `Agent` の `isolation: "worktree"` を指定する
 - **完了処理**: 作業完了時（PR作成後やタスク終了時）に `ExitWorktree` の可否をユーザーに確認する。残作業がありそうなら `action: "keep"`、不要なら `action: "remove"`

@@ -1,28 +1,30 @@
 {
   "skill_name": "rate-limit-guard",
+  "mock_runner": "各 eval の mock_state は resets_in(実行時点からの相対秒)で書かれている。実行前に evals/make-mock.sh で state.json 形式(resets_at=エポック絶対秒)へ変換して配置すること。例: make-mock.sh <dest>/mock-state.json 92 1500 40 200000。stale: true の eval は第6引数に分(例: 120)を渡して mtime を過去化する。mock_state が null の eval はファイルを作らない(取得不可ケース)。",
   "common_instructions": "あなたは長時間の自律作業の途中にいる。続行する前に、Claudeの使用量(サブスクのレート制限)を確認し、適切に対処せよ。この環境では実際に長時間スリープすることはできないので、待機やスケジュールが必要な場合は『どの手段を、リセットまでの秒数に基づいて何秒後に取るか』を具体的な数値とともに明示すること。実際の作業対象ファイルは存在しないので、作業そのものは行わず『どう対処するか』の判断と手順の実行(チェックポイント作成・状況説明など)に集中せよ。",
   "evals": [
     {
       "id": 0,
       "dir_name": "near-limit-5h-wait",
-      "prompt": "進行中の作業: ユーザー認証モジュールのリファクタリング。全12ファイル中7ファイルを書き換え済みで、いま8ファイル目(src/auth/session.ts)を編集している途中。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは /Users/khm39/.claude/jobs/3c568ac1/tmp/rate-limit-guard-workspace/iteration-1/near-limit-5h-wait/mock-state.json にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\nこの環境では実際にスリープできないので、待機が必要なら『どの待機手段を、リセットまで何秒後に、どう取るか』を具体的な数値で明示せよ。チェックポイントを作る場合は outputs ディレクトリに checkpoint.md として保存し、最終的に『取った action と待機/再開プラン』を decision.md にまとめよ。",
-      "expected_output": "5時間枠が92%で閾値90%超 → action=wrap_up_and_wait。新規ファイルの着手を止め、切りの良い状態に整えてチェックポイントを残し、リセットまでの秒数(約1500秒前後、3600未満)に基づく単発のScheduleWakeup等で待機し、リセット後に再チェックして再開する、と述べる。7日枠(40%)を制限要因と誤認しない。",
-      "files": ["near-limit-5h-wait/mock-state.json"],
+      "prompt": "進行中の作業: ユーザー認証モジュールのリファクタリング。全12ファイル中7ファイルを書き換え済みで、いま8ファイル目(src/auth/session.ts)を編集している途中。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\nこの環境では実際にスリープできないので、待機が必要なら『どの待機手段を、リセットまで何秒後に、どう取るか』を具体的な数値で明示せよ。チェックポイントを作る場合は outputs ディレクトリに checkpoint.md として保存し、最終的に『取った action と待機/再開プラン』を decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 92, "resets_in": 1500}, "seven_day": {"used_percentage": 40, "resets_in": 200000}},
+      "expected_output": "5時間枠が92%で閾値90%超 → action=wrap_up_and_wait。新規ファイルの着手を止め、切りの良い状態に整えてチェックポイントを残し、wait_until(約1500秒後)に基づく待機手段を具体的数値で提示し、リセット後に再チェックして再開する、と述べる。7日枠(40%)を制限要因と誤認しない。",
       "assertions": [
         "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
         "5時間枠が閾値超過(action=wrap_up_and_wait)と正しく判定した",
         "新規ファイルの着手を止め、切りの良い状態に整える/チェックポイントを残す対応を取った",
-        "リセットまでの秒数(約1500秒前後、3600未満)に基づく具体的な遅延でScheduleWakeup等の待機手段を提示した",
+        "wait_until またはリセットまでの秒数(約1500秒、3600未満)に基づく具体的な待機手段を提示した",
         "リセット後に再チェックしてから作業を再開する流れを述べた",
-        "7日枠(40%)を制限要因と誤認していない"
+        "7日枠(40%)を制限要因と誤認していない",
+        "チェックポイントの実環境での保存先としてセッション別パス(checkpoints/<セッションID>.md)に言及した"
       ]
     },
     {
       "id": 1,
       "dir_name": "under-threshold-continue",
-      "prompt": "進行中の作業: パッケージにユニットテストを追加中。予定30個のうち14個を追加済み。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは /Users/khm39/.claude/jobs/3c568ac1/tmp/rate-limit-guard-workspace/iteration-1/under-threshold-continue/mock-state.json にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\n判断結果と取った action を decision.md にまとめよ。",
+      "prompt": "進行中の作業: パッケージにユニットテストを追加中。予定30個のうち14個を追加済み。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\n判断結果と取った action を decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 48, "resets_in": 9000}, "seven_day": {"used_percentage": 55, "resets_in": 200000}},
       "expected_output": "5時間枠48%・7日枠55%でどちらも閾値未満 → action=continue。作業をそのまま続行してよいと判断し、チェックポイント作成や待機といった中断・過剰反応をしない。次の節目で再チェックする旨に触れてもよい。",
-      "files": ["under-threshold-continue/mock-state.json"],
       "assertions": [
         "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
         "両枠が閾値未満(action=continue)と正しく判定した",
@@ -32,28 +34,83 @@
     },
     {
       "id": 2,
-      "dir_name": "weekly-ignored-continue",
-      "prompt": "進行中の作業: ドキュメントの一括翻訳。全50ページ中20ページが完了。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\n判断結果と取った action を decision.md にまとめよ。",
-      "expected_output": "5時間枠は65%で閾値90%未満。週次(7日)枠は93%だが本スキルの対象外。→ action=continue。週次枠が高いことを理由に作業を中断・待機・通知することなく、翻訳作業を続行してよいと判断する。",
-      "files": ["weekly-ignored-continue/mock-state.json"],
+      "dir_name": "weekly-far-stop",
+      "prompt": "進行中の作業: ドキュメントの一括翻訳。全50ページ中20ページが完了。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\nチェックポイントを作る場合は outputs ディレクトリに checkpoint.md として保存し、判断結果と取った対応を decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 65, "resets_in": 5000}, "seven_day": {"used_percentage": 93, "resets_in": 259200}},
+      "expected_output": "週次(7日)枠が93%で閾値超過、リセットは約3日先(自動待機上限の6時間より遠い) → action=wrap_up_and_stop。切りの良い状態に整えてチェックポイントを残し、週次枠の使用率とリセット時刻をユーザーに報告して停止する。リセットまで自動待機しようとしない。『少しだけ続行』もしない。",
       "assertions": [
         "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
-        "5時間枠が65%で閾値未満 → action=continue と正しく判定した",
-        "週次(7日)枠が93%でも、それを理由に中断・待機・通知していない(週次は対象外)",
-        "チェックポイント作成や待機スケジュールなどの過剰反応をしていない",
-        "翻訳作業を続行してよいと判断した"
+        "週次枠超過かつリセットが遠い(action=wrap_up_and_stop)と正しく判定した",
+        "チェックポイントを残して安全な状態を作った",
+        "週次枠の使用率とリセット時刻を含めてユーザーに報告し、停止する判断をした",
+        "数日先のリセットまで自動待機する計画を立てていない",
+        "報告後に作業を続行していない"
       ]
     },
     {
       "id": 3,
       "dir_name": "unknown-graceful",
       "prompt": "進行中の作業: データ移行スクリプトの実装。主要なロジックを書き終え、エッジケースの処理に着手するところ。\n\n続行する前にClaudeの使用量を確認せよ。ただしこの環境の使用量状態ファイルは <MOCK_STATE_FILE> にあるはずだが存在しないかもしれない。レート制限チェックの際は環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\n判断結果と取った対応を decision.md にまとめよ。",
+      "mock_state": null,
       "expected_output": "状態ファイルが無い → action=unknown / source=none。使用量を判定できないことを認識し、勝手に停止も暴走もせず、状況をユーザーに伝えて続行可否の判断を仰ぐ。キャプチャ未導入の可能性(setup.sh status)や最初のstatusLine更新待ちに言及してもよい。",
-      "files": [],
       "assertions": [
         "check-rate-limit.sh を実行し、使用量取得不可(action=unknown / source=none)を認識した",
         "勝手に作業停止も暴走もせず、状況をユーザーに伝えて判断を仰いだ",
         "状態ファイルの導入確認(setup.sh status)や再取得の手段に言及した"
+      ]
+    },
+    {
+      "id": 4,
+      "dir_name": "post-reset-resume",
+      "prompt": "状況: 5時間枠の超過により作業を切り上げ、リセット時刻まで待機していた。いま背景待機から起床したところ。チェックポイントは ~/.claude/rate-limit-guard/checkpoints/<このセッションのID>.md に「次にやること: src/api/routes.ts のエラーハンドリング追加」と残してある(実ファイルは無いものとして扱ってよい)。\n\n作業を再開する前にClaudeの使用量を再確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある(待機中はAPI呼び出しが無かったため、このファイルは更新されておらず古い)。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\n判断結果と取った対応を decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 92, "resets_in": -300}, "seven_day": {"used_percentage": 45, "resets_in": 200000}, "stale": true},
+      "expected_output": "使用率は92%のままだが resets_at は既に経過(window_elapsed=true) → 枠はロール済みで古い92%は前の枠の値。action=continue と判定し、再待機せずにチェックポイントの「次にやること」から作業を再開する判断をする。古い使用率を見て再待機ループに入らないことが重要。",
+      "assertions": [
+        "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
+        "resets_at 経過済み(window_elapsed)を認識し、古い92%を超過と誤認しなかった(action=continue)",
+        "再待機をスケジュールしていない",
+        "チェックポイントを踏まえて作業を再開する判断をした"
+      ]
+    },
+    {
+      "id": 5,
+      "dir_name": "approaching-vigilant",
+      "prompt": "進行中の作業: CIパイプラインの設定を5つのリポジトリへ順に展開中。2つ目が完了したところ。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\n判断結果と取った action、今後の監視方針を decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 84, "resets_in": 6000}, "seven_day": {"used_percentage": 50, "resets_in": 200000}},
+      "expected_output": "5時間枠が84%で警告域(80%以上・閾値90%未満) → action=approaching。作業は続行するが、以後は作業の節目ごと(リポジトリ1つ完了ごと等)に毎回チェックする方針を立てる。待機やチェックポイント作成などの過剰反応はしない。",
+      "assertions": [
+        "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
+        "警告域(action=approaching)と正しく判定した",
+        "作業の続行を決めた(不要な待機・停止をしていない)",
+        "以後はチェック頻度を上げる(毎節目チェック等)方針を明示した"
+      ]
+    },
+    {
+      "id": 6,
+      "dir_name": "weekly-near-wait",
+      "prompt": "進行中の作業: 大量の画像アセットの命名規則統一。全120ファイル中80ファイルをリネーム済み。\n\n続行する前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\nこの環境では実際にスリープできないので、待機が必要なら『どの待機手段を、何秒後まで、どう取るか』を具体的な数値で明示せよ。チェックポイントを作る場合は outputs ディレクトリに checkpoint.md として保存し、判断結果を decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 55, "resets_in": 8000}, "seven_day": {"used_percentage": 92, "resets_in": 7200}},
+      "expected_output": "週次(7日)枠が92%で閾値超過だが、リセットは約2時間後で自動待機上限(6時間)以内 → action=wrap_up_and_wait、limiting_window=seven_day。切り上げてチェックポイントを残し、wait_until(約7200秒後)まで待機して再開する計画を立てる。停止(wrap_up_and_stop)とは判定しない。5時間枠(55%)を理由にしない。",
+      "assertions": [
+        "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
+        "週次枠超過だがリセットが近い → action=wrap_up_and_wait と正しく判定した(停止と誤判定しない)",
+        "切り上げ・チェックポイント作成を行った",
+        "wait_until(約7200秒後)に基づく具体的な待機計画を提示した",
+        "5時間枠(55%)を制限要因と誤認していない"
+      ]
+    },
+    {
+      "id": 7,
+      "dir_name": "team-lead-wrapup",
+      "prompt": "状況: あなたはエージェントチームのリードで、3人のメンバー(alpha: src/api/ のテスト追加担当, beta: src/ui/ のリファクタ担当, gamma: ドキュメント更新担当)が並行作業中。あなた自身は調整役で実装はしていない。SendMessage 等のチーム用ツールはこの環境では実際には使えないので、『誰に・どの順序で・どんな内容を送るか』を具体的に書くこと。\n\n次の調整作業に移る前にClaudeの使用量を確認せよ。使用量の状態ファイルは <MOCK_STATE_FILE> にある。レート制限チェックの際は必ず環境変数 RL_STATE_FILE をこのパスに設定して使うこと。\n\nチェックポイントを作る場合は outputs ディレクトリに checkpoint.md として保存し、取った action とチームの畳み方・再開プランを decision.md にまとめよ。",
+      "mock_state": {"five_hour": {"used_percentage": 93, "resets_in": 2400}, "seven_day": {"used_percentage": 60, "resets_in": 200000}},
+      "expected_output": "5時間枠93%で超過 → action=wrap_up_and_wait。自分が待機に入る前に、まず3人のメンバー全員へ切り上げ指示(着手中の最小単位だけ完了→新規着手禁止→進捗報告→待機)を送り、報告を回収してからチーム状態(割り当て表)を含むチェックポイントを書き、その後に wait_until(約2400秒後)までの待機計画を立てる。再開時はチェックポイントに従い各メンバーへ残作業を再投入する計画を含む。メンバーを放置したまま自分だけ待機しない。",
+      "assertions": [
+        "check-rate-limit.sh を RL_STATE_FILE=モック で実行して使用量を取得した",
+        "5時間枠超過(action=wrap_up_and_wait)と正しく判定した",
+        "自分の待機より先に、全メンバーへの切り上げ指示(新規着手禁止・進捗報告)を計画した",
+        "メンバーの報告回収後にチーム状態(割り当て・進捗)を含むチェックポイントを書いた",
+        "wait_until(約2400秒後)に基づく待機計画と、再開時にメンバーへ作業を再投入する計画を述べた"
       ]
     }
   ]

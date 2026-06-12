@@ -32,10 +32,33 @@ if [ -n "$used" ]; then
 fi
 
 # Rate limits: Claude.ai Pro/Max only, absent before first API response
-five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+now=$(date +%s)
+
+fmt_reset() {
+  local at="${1%.*}"
+  case "$at" in ''|*[!0-9]*) return ;; esac
+  local secs=$(( at - now ))
+  [ "$secs" -le 0 ] && return
+  local d=$(( secs / 86400 ))
+  local h=$(( (secs % 86400) / 3600 ))
+  local m=$(( (secs % 3600) / 60 ))
+  if [ "$d" -gt 0 ]; then printf ' ⏳%dd%dh' "$d" "$h"
+  elif [ "$h" -gt 0 ]; then printf ' ⏳%dh%02dm' "$h" "$m"
+  else printf ' ⏳%dm' "$m"
+  fi
+}
+
 rate=""
+five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 if [ -n "$five_pct" ]; then
-  rate=" | 5h $(render_bar "$(printf '%.0f' "$five_pct")" 10)"
+  five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+  rate=" | 5h $(render_bar "$(printf '%.0f' "$five_pct")" 10)$(fmt_reset "$five_reset")"
+fi
+
+seven_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+if [ -n "$seven_pct" ]; then
+  seven_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+  rate="${rate} | 7d $(render_bar "$(printf '%.0f' "$seven_pct")" 10)$(fmt_reset "$seven_reset")"
 fi
 
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')

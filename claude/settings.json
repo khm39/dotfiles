@@ -173,7 +173,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write|Bash|SendMessage|Agent",
         "hooks": [
           {
             "type": "command",

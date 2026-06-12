@@ -103,9 +103,15 @@ fi
 echo -e "🦀 ${model}${ctx}${rate}${cost_str}${lines}${branch}${elapsed}"
 # >>> rate-limit-guard (managed; remove with setup.sh uninstall) >>>
 # 既存 statusline が読み込んだ $input(stdinのJSON)から rate_limits を独自stateへ書き出す。
-_rlg=$(printf '%s' "$input" | jq -c '.rate_limits // empty' 2>/dev/null)
+# tmp→mv のアトミック書き込み(チェッカーが書き込み途中の断片を読まないため)。
+_rlg=$(printf '%s' "${input-}" | jq -c '.rate_limits // empty' 2>/dev/null)
 if [ -n "$_rlg" ]; then
-  mkdir -p "$HOME/.claude/rate-limit-guard" 2>/dev/null
-  printf '%s' "$input" | jq -c '.rate_limits + {captured_at: (now|floor)}' > "$HOME/.claude/rate-limit-guard/state.json" 2>/dev/null
+  _rlg_dir="${RL_STATE_DIR:-$HOME/.claude/rate-limit-guard}"
+  mkdir -p "$_rlg_dir" 2>/dev/null
+  if printf '%s' "${input-}" | jq -c '.rate_limits + {captured_at: (now|floor)}' > "$_rlg_dir/state.json.tmp.$$" 2>/dev/null; then
+    mv -f "$_rlg_dir/state.json.tmp.$$" "$_rlg_dir/state.json" 2>/dev/null
+  else
+    rm -f "$_rlg_dir/state.json.tmp.$$" 2>/dev/null
+  fi
 fi
 # <<< rate-limit-guard <<<

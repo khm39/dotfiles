@@ -7,16 +7,20 @@ _rl=$(echo "$input" | jq -c '.rate_limits // empty' 2>/dev/null)
 [ -n "$_rl" ] && mkdir -p "$(dirname "$HOME/.vibe-island/cache/rl.json")" 2>/dev/null && printf '%s\n' "$_rl" > "$HOME/.vibe-island/cache/rl.json"
 # ── End Vibe Island bridge ─────────────────────────────
 
+pct_color() {
+  if [ "$1" -ge 80 ]; then printf '%s' '\033[31m'
+  elif [ "$1" -ge 50 ]; then printf '%s' '\033[33m'
+  else printf '%s' '\033[32m'
+  fi
+}
+
 render_bar() {
   local pct_int="$1"
   local w="$2"
   local f=$(( pct_int * w / 100 ))
   local e=$(( w - f ))
   local color
-  if [ "$pct_int" -ge 80 ]; then color="\033[31m"
-  elif [ "$pct_int" -ge 50 ]; then color="\033[33m"
-  else color="\033[32m"
-  fi
+  color=$(pct_color "$pct_int")
   local b=""
   for ((i=0; i<f; i++)); do b+="█"; done
   for ((i=0; i<e; i++)); do b+="░"; done
@@ -57,8 +61,9 @@ fi
 
 seven_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 if [ -n "$seven_pct" ]; then
+  seven_int=$(printf '%.0f' "$seven_pct")
   seven_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
-  rate="${rate} | 7d $(render_bar "$(printf '%.0f' "$seven_pct")" 10)$(fmt_reset "$seven_reset")"
+  rate="${rate} | 7d $(pct_color "$seven_int")${seven_int}%\033[0m$(fmt_reset "$seven_reset")"
 fi
 
 cost=$(echo "$input" | jq -r '.cost.total_cost_usd // empty')
